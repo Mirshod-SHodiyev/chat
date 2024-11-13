@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();                        
             $table->unsignedBigInteger('sender_id'); 
             $table->unsignedBigInteger('receiver_id'); 
-            $table->text('message');              
+            $table->text('content');              
             $table->timestamps();                 
 
             

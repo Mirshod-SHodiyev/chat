@@ -7,17 +7,16 @@ use App\Http\Controllers\MessageController;
 
 Route::get('/', function () {
     return view('welcome');
-});
+})->name('home');
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/', [UserController::class, 'index'])->name('home');
-   
-     Route::post('/message', [MessageController::class, 'sendMessage']);
-     Route::get('/messages/{userId}', [MessageController::class, 'getMessages']);
+    Route::get('/chat/{userId}', [MessageController::class, 'index'])->name('chat');
+    Route::post('/message', [MessageController::class, 'sendMessage'])->name('message.send');
+    Route::get('/fetch-messages/{userId}', [MessageController::class, 'fetchMessages']);
+
+
 });
 
 require __DIR__.'/auth.php';

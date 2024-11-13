@@ -1,48 +1,80 @@
 <?php
-
 namespace App\Http\Controllers;
 
-use App\Models\Message;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Message;
+use App\Models\User;
 
 class MessageController extends Controller
 {
-    // Xabar yuborish
-    public function sendMessage(Request $request)
+
+    public function index($userId)
     {
-        // Validate the incoming request data
-        $request->validate([
-            'receiver_id' => 'required|exists:users,id', // Check if receiver exists in the users table
-            'content' => 'required|string|max:255', // The message content
-        ]);
+        
+        $users = User::all();
 
-        // Create a new message record
-        $message = Message::create([
-            'sender_id' => Auth::id(), // Get the ID of the authenticated user
-            'receiver_id' => $request->receiver_id, // Receiver's user ID
-            'content' => $request->content, // Message content
-        ]);
+        
+        $selectedUser = User::find($userId);
 
-        // Return the created message as a JSON response
-        return response()->json($message);
+        if (!$selectedUser) {
+            return redirect()->route('home')->with('error', 'User not found');
+        }
+
+        
+        $messages = Message::where(function ($query) use ($userId) {
+            $query->where('receiver_id', auth()->id())
+                ->where('sender_id', $userId);
+        })
+        ->orWhere(function ($query) use ($userId) {
+            $query->where('sender_id', auth()->id())
+                ->where('receiver_id', $userId);
+        })
+        ->orderBy('created_at', 'asc') 
+        ->get();
+
+        return view('welcome', compact('users', 'selectedUser', 'messages')); 
     }
 
-    // Foydalanuvchiga tegishli xabarlarni olish
-    public function getMessages($userId)
+    public function sendMessage(Request $request)
     {
-        // Retrieve messages between the authenticated user and the given user
-        $messages = Message::where(function ($query) use ($userId) {
-            // Messages sent by the authenticated user to the given user
-            $query->where('sender_id', Auth::id())
-                  ->where('receiver_id', $userId);
-        })->orWhere(function ($query) use ($userId) {
-            // Messages sent by the given user to the authenticated user
-            $query->where('sender_id', $userId)
-                  ->where('receiver_id', Auth::id());
-        })->get();
+      
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'message' => 'required|string|max:1000',
+        ]);
 
-        // Return messages as a JSON response
-        return response()->json($messages);
+        
+        $message = new Message();
+        $message->sender_id = auth()->id();
+        $message->receiver_id = $request->user_id;
+        $message->content = $request->message;
+
+      
+        $message->save();
+
+        return redirect()->route('home', ['userId' => $request->user_id]);
+    }
+
+    public function fetchMessages($userId)
+    {
+        
+        $messages = Message::where(function ($query) use ($userId) {
+            $query->where('sender_id', auth()->id())
+                ->where('receiver_id', $userId);
+        })
+        ->orWhere(function ($query) use ($userId) {
+            $query->where('receiver_id', auth()->id())
+                ->where('sender_id', $userId);
+        })
+        ->where('read', false) 
+        ->latest() 
+        ->get();
+
+        $messages->each(function ($message) {
+            $message->read = true;
+            $message->save();
+        });
+
+        return response()->json(['messages' => $messages]);
     }
 }
